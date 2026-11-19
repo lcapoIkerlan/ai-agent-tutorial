@@ -41,4 +41,6 @@ def answer_question(question: str, index: Index, model: str) -> Answer:
         text = response.choices[0].message.content
     except Exception as exc:
         raise LLMError(str(exc)) from exc
+    if not text or not text.strip():
+        raise LLMError("The model returned an empty response")
     return Answer(text, list(dict.fromkeys(c.source for c in chunks)))

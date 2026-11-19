@@ -69,3 +69,10 @@ def test_llm_error(monkeypatch):
     monkeypatch.setattr(agent.litellm, "completion", completion)
     with pytest.raises(LLMError, match="bad key"):
         answer_question("q?", FakeIndex([Chunk("t", "a.md")]), "p/m")
+
+
+@pytest.mark.parametrize("content", [None, "   "])
+def test_empty_response_raises(monkeypatch, content):
+    monkeypatch.setattr(agent.litellm, "completion", fake_completion([], content))
+    with pytest.raises(LLMError, match="The model returned an empty response"):
+        answer_question("q?", FakeIndex([Chunk("t", "a.md")]), "p/m")
