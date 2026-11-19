@@ -27,11 +27,11 @@ Everything in the repo is in English: README, code comments, logs, error message
 
 1. Install Docker Desktop and download the repo (ZIP or `git clone`).
 2. Copy `.env.example` to `.env` and fill in a few values.
-3. Copy documents (PDF, DOCX, MD, TXT) into `docs/`.
+3. Copy documents (PDF, DOCX, MD, TXT) into `documents/`.
 4. Run `docker compose up`.
 5. Open `http://localhost:8000/.well-known/agent-card.json` to verify. That base URL is what the user registers in the central A2A platform.
 
-Changing `docs/` later: `docker compose restart`.
+Changing `documents/` later: `docker compose restart`.
 
 ## Configuration (`.env`)
 
@@ -54,7 +54,7 @@ ai-agent-tutorial/
 ├── .env.example
 ├── docker-compose.yml
 ├── Dockerfile
-├── docs/                 # user documents
+├── documents/            # user documents
 ├── app/
 │   ├── main.py           # startup: validate config, index docs, serve
 │   ├── config.py         # read and validate .env
@@ -83,7 +83,7 @@ Nothing else. The agent card declares one skill: answer questions about the load
 
 Startup:
 1. `config.py` validates `.env`; on failure the container exits with a clear message.
-2. `indexer.py` walks `docs/`, hashes each file, processes only new or modified files, and removes index entries for deleted files. Text is extracted from PDF, DOCX, MD and TXT, split into chunks of about 800 characters with overlap, and stored in Chroma with the file name as metadata.
+2. `indexer.py` walks `documents/`, hashes each file, processes only new or modified files, and removes index entries for deleted files. Text is extracted from PDF, DOCX, MD and TXT, split into chunks of about 800 characters with overlap, and stored in Chroma with the file name as metadata.
 3. The server starts.
 
 Per request (`message/send`):
@@ -99,7 +99,7 @@ Each request is independent; no conversation history is kept.
 | Situation | Behavior |
 |---|---|
 | Missing/invalid config | Exit at startup: `Missing ANTHROPIC_API_KEY in your .env file` (variable name matches the provider) |
-| `docs/` empty | Start anyway, log `No documents found in docs/. Add files and restart.`, agent answers that no documentation is loaded |
+| `documents/` empty | Start anyway, log `No documents found in documents/. Add files and restart.`, agent answers that no documentation is loaded |
 | Unreadable file (e.g. scanned PDF with no text) | Log a warning with the file name, skip it, continue |
 | LLM provider failure | Failed A2A task with `The LLM provider returned an error: <reason>`; no retry |
 | Wrong/missing bearer token (when `AGENT_API_KEY` set) | HTTP 401 `Unauthorized` |
@@ -114,3 +114,5 @@ Each request is independent; no conversation history is kept.
 
 - Verify the current `a2a-sdk` API against its up-to-date documentation before writing code.
 - Default is `message/send` only; streaming is deferred until the central platform needs it.
+- The user folder is `documents/` (not `docs/`) because `docs/` holds this repo's own specs and plans, which must not be indexed.
+- With `AGENT_API_KEY` set, only `POST /` requires the bearer token; the agent card stays public so the central platform can discover the agent.
