@@ -7,7 +7,7 @@ services:
     volumes:
       - ./documents:/app/documents
       - agent-data:/app/data
-    restart: unless-stopped
+    restart: on-failure:3
 
 volumes:
   agent-data:
