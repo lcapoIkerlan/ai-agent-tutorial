@@ -19,7 +19,7 @@ You do not need to know how to program. You only need Docker Desktop.
    docker compose up
    ```
    The first run takes a few minutes while it builds. Leave the window open: the agent runs while it is open. (Use `docker compose up -d` to run it in the background.)
-5. **Check that it works.** Open <http://localhost:8000/.well-known/agent-card.json> in your browser. You should see a block of text with your agent's name. That address (`http://localhost:8000`) is the one you register in the central A2A platform.
+5. **Check that it works.** Open <http://localhost:8000/.well-known/agent-card.json> in your browser. Wait until the log shows `Uvicorn running on http://0.0.0.0:8000` (the first indexing of many files can take minutes). You should then see a block of text with your agent's name. That address (`http://localhost:8000`) is the one you register in the central A2A platform.
 
 Always start the agent with `docker compose up`, because the agent receives your settings from the `.env` file through Docker.
 
@@ -42,7 +42,7 @@ Only fill in the API key for the provider you chose in `LLM_MODEL`.
 
 ## Your documents
 
-- Supported types: **PDF, DOCX, MD, TXT** (other files are ignored).
+- Supported types: **PDF, DOCX, MD, TXT** (other files are ignored). Tables in Word files are read as text.
 - Put them in the `documents/` folder (subfolders are fine).
 - After adding, changing or deleting files, restart the agent so it picks up the changes (this is for documents only, not for `.env`):
   ```
@@ -77,6 +77,8 @@ In the platform, add a new agent and give it the base URL, e.g. `http://localhos
 
 If `AGENT_API_KEY` is empty, **anyone who can reach the agent can ask it questions** about your documents. That is fine on your own computer, but on a server set `AGENT_API_KEY` to a long random secret. Callers must then send `Authorization: Bearer <key>`; requests without it get `Unauthorized` (HTTP 401). The agent card stays public.
 
+Only add documents you trust, because their text can steer the agent's answers.
+
 Your documents are sent in small excerpts to the AI provider you chose, to produce answers.
 
 ## Troubleshooting
@@ -94,5 +96,7 @@ Your documents are sent in small excerpts to the AI provider you chose, to produ
 | `env file .env not found` | You skipped step 2: copy `.env.example` to `.env`. |
 
 If the settings are wrong, the agent tries to start a few times, then stays stopped with the error as the last line. Fix `.env` and run `docker compose up` again. If the terminal is still attached and busy, press Ctrl+C first.
+
+After restarting your computer or Docker Desktop, run `docker compose up -d` again (the container is only restarted automatically up to a few times after a crash).
 
 To see what the agent is doing: `docker compose logs`. To stop it: `docker compose down`.

@@ -20,7 +20,13 @@ def extract_text(path: Path) -> str:
     if ext == ".pdf":
         return "\n".join(page.extract_text() or "" for page in PdfReader(path).pages)
     if ext == ".docx":
-        return "\n".join(p.text for p in Document(str(path)).paragraphs)
+        doc = Document(str(path))
+        rows = [
+            " | ".join(cell.text for cell in row.cells)
+            for table in doc.tables
+            for row in table.rows
+        ]
+        return "\n".join([p.text for p in doc.paragraphs] + rows)
     return path.read_text(encoding="utf-8", errors="replace")
 
 
@@ -53,7 +59,9 @@ class SyncReport:
 class Index:
     def __init__(self, data_dir: Path, embedding_function: EmbeddingFunction | None = None):
         client = chromadb.PersistentClient(path=str(Path(data_dir) / "chroma"))
-        # embedding_function=None would make Chroma use its default (network download)
+        self._max_batch = client.get_max_batch_size()
+        # Production passes None and uses Chroma's default model, which the Dockerfile
+        # pre-warms at build time; tests inject a fake to avoid any download.
         kwargs = {"embedding_function": embedding_function} if embedding_function else {}
         self._col = client.get_or_create_collection("documents", **kwargs)
 
@@ -63,6 +71,15 @@ class Index:
     def _stored_hashes(self) -> dict[str, str]:
         metas = self._col.get(include=["metadatas"])["metadatas"] or []
         return {m["source"]: m["sha256"] for m in metas}
+
+    def _add(self, source: str, digest: str, chunks: list[str]) -> None:
+        for i in range(0, len(chunks), self._max_batch):
+            part = chunks[i : i + self._max_batch]
+            self._col.add(
+                ids=[f"{source}:{digest[:12]}:{i + j}" for j in range(len(part))],
+                documents=part,
+                metadatas=[{"source": source, "sha256": digest}] * len(part),
+            )
 
     def sync(self, documents_dir: Path) -> SyncReport:
         report = SyncReport()
@@ -79,26 +96,30 @@ class Index:
                 continue
             source = path.relative_to(documents_dir).as_posix()
             seen.add(source)
-            digest = hashlib.sha256(path.read_bytes()).hexdigest()
-            if stored.get(source) == digest:
-                continue
+            digest = None
             try:
+                digest = hashlib.sha256(path.read_bytes()).hexdigest()
+                if stored.get(source) == digest:
+                    continue
                 chunks = chunk_text(extract_text(path))
-            except Exception as exc:
-                log.warning("Skipped %s: cannot read (%s)", source, exc)
-                chunks = []
-            if source in stored:
-                self._col.delete(where={"source": source})
-            if not chunks:
-                if source not in report.skipped:
+                if not chunks:
                     log.warning("Skipped %s: no text extracted", source)
+                    self._col.delete(where={"source": source})
+                    report.skipped.append(source)
+                    continue
+                self._add(source, digest, chunks)
+            except Exception as exc:
+                log.warning("Skipped %s: cannot index (%s)", source, exc)
+                if digest:
+                    try:  # drop partial new chunks; the previous version stays intact
+                        self._col.delete(where={"$and": [{"source": source}, {"sha256": digest}]})
+                    except Exception:
+                        pass
                 report.skipped.append(source)
                 continue
-            self._col.add(
-                ids=[f"{source}:{digest[:12]}:{i}" for i in range(len(chunks))],
-                documents=chunks,
-                metadatas=[{"source": source, "sha256": digest}] * len(chunks),
-            )
+            if source in stored:
+                # old chunks are removed only after the new ones were added
+                self._col.delete(where={"$and": [{"source": source}, {"sha256": {"$ne": digest}}]})
             (report.updated if source in stored else report.added).append(source)
             log.info("%s %s (%d chunks)", "Updated" if source in stored else "Added", source, len(chunks))
 

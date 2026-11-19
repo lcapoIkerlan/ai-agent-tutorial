@@ -1,4 +1,5 @@
 import hashlib
+from pathlib import Path
 
 import pytest
 from chromadb import EmbeddingFunction
@@ -126,3 +127,44 @@ def test_ignored_and_skipped(index, docs):
 
 def test_empty_folder(index, docs):
     assert index.sync(docs) == SyncReport([], [], [], [])
+
+
+def test_small_batch_size_stores_all_chunks(index, docs):
+    index._max_batch = 3
+    (docs / "big.txt").write_text("x" * 5000, encoding="utf-8")
+    assert index.sync(docs).added == ["big.txt"]
+    assert index.count() == len(chunk_text("x" * 5000))
+
+
+def test_failed_update_keeps_previous_version(index, docs, monkeypatch):
+    (docs / "a.txt").write_text("old content", encoding="utf-8")
+    index.sync(docs)
+    (docs / "a.txt").write_text("new content", encoding="utf-8")
+    monkeypatch.setattr(index, "_add", lambda *a: (_ for _ in ()).throw(RuntimeError("boom")))
+    assert index.sync(docs).skipped == ["a.txt"]
+    assert index.search("old")[0].text == "old content"
+
+
+def test_unreadable_file_is_skipped(index, docs, monkeypatch):
+    (docs / "bad.txt").write_text("secret", encoding="utf-8")
+    (docs / "ok.txt").write_text("fine", encoding="utf-8")
+    real = Path.read_bytes
+
+    def fake(self):
+        if self.name == "bad.txt":
+            raise PermissionError("denied")
+        return real(self)
+
+    monkeypatch.setattr(Path, "read_bytes", fake)
+    r = index.sync(docs)
+    assert r.skipped == ["bad.txt"] and r.added == ["ok.txt"]
+
+
+def test_extract_text_docx_tables(tmp_path):
+    p = tmp_path / "t.docx"
+    d = Document()
+    t = d.add_table(rows=1, cols=2)
+    t.rows[0].cells[0].text = "cellA"
+    t.rows[0].cells[1].text = "cellB"
+    d.save(p)
+    assert "cellA | cellB" in extract_text(p)
