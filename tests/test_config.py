@@ -6,7 +6,7 @@ BASE = {
     "AGENT_NAME": "Bot",
     "AGENT_DESCRIPTION": "Answers questions",
     "LLM_MODEL": "anthropic/claude-sonnet-5-5",
-    "ANTHROPIC_API_KEY": "k",
+    "LLM_API_KEY": "k",
 }
 
 
@@ -27,21 +27,18 @@ def test_missing_required(var):
     assert str(e.value) == f"Missing {var} in your .env file"
 
 
-@pytest.mark.parametrize(
-    "model,key",
-    [("anthropic/x", "ANTHROPIC_API_KEY"), ("openai/x", "OPENAI_API_KEY"), ("gemini/x", "GEMINI_API_KEY")],
-)
-def test_missing_provider_key(model, key):
+@pytest.mark.parametrize("model", ["anthropic/x", "openai/x", "gemini/x"])
+def test_missing_provider_key(model):
     env = {**BASE, "LLM_MODEL": model}
-    env.pop("ANTHROPIC_API_KEY")
+    env.pop("LLM_API_KEY")
     with pytest.raises(ConfigError) as e:
         load_settings(env)
-    assert str(e.value) == f"Missing {key} in your .env file"
+    assert str(e.value) == "Missing LLM_API_KEY in your .env file"
 
 
 def test_unknown_provider_ok():
     env = {**BASE, "LLM_MODEL": "ollama/llama3"}
-    env.pop("ANTHROPIC_API_KEY")
+    env.pop("LLM_API_KEY")
     assert load_settings(env).llm_model == "ollama/llama3"
 
 

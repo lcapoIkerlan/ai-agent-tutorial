@@ -13,17 +13,14 @@ class Settings:
     agent_name: str
     agent_description: str
     llm_model: str
+    llm_api_key: str | None
     public_url: str
     agent_api_key: str | None
     documents_dir: Path
     data_dir: Path
 
 
-PROVIDER_KEYS = {
-    "anthropic": "ANTHROPIC_API_KEY",
-    "openai": "OPENAI_API_KEY",
-    "gemini": "GEMINI_API_KEY",
-}
+NEEDS_KEY = {"anthropic", "openai", "gemini"}  # others (e.g. on-prem) may not need a key
 
 
 def _require(env: Mapping[str, str], name: str) -> str:
@@ -42,13 +39,13 @@ def load_settings(env: Mapping[str, str] | None = None) -> Settings:
         raise ConfigError(
             "LLM_MODEL must look like provider/model, e.g. anthropic/claude-sonnet-5-5"
         )
-    key_var = PROVIDER_KEYS.get(model.split("/", 1)[0])
-    if key_var:
-        _require(env, key_var)
+    if model.split("/", 1)[0] in NEEDS_KEY:
+        _require(env, "LLM_API_KEY")
     return Settings(
         agent_name=name,
         agent_description=description,
         llm_model=model,
+        llm_api_key=env.get("LLM_API_KEY", "").strip() or None,
         public_url=env.get("PUBLIC_URL", "").strip().rstrip("/") or "http://localhost:8000",
         agent_api_key=env.get("AGENT_API_KEY", "").strip() or None,
         documents_dir=Path(env.get("DOCUMENTS_DIR") or "documents"),

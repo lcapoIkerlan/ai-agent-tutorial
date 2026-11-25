@@ -1,102 +1,63 @@
 # Documentation Agent
 
-An AI agent that answers questions about **your own documents** (PDF, Word, Markdown and text files). It follows the open A2A protocol, so a central A2A platform or any other A2A agent can ask it questions.
+An AI-agent that answers questions about **your own documents** (PDF, Word, Markdown, text). Other agents and platforms can chat with it.
 
-You do not need to know how to program. You only need Docker Desktop.
+No programming needed. You only need:
 
-## What you need
+- [Docker Desktop](https://www.docker.com/products/docker-desktop/), installed and open.
+- An API key from an AI company (Anthropic, OpenAI, Google Gemini, on-prem, etc.).
 
-- [Docker Desktop](https://www.docker.com/products/docker-desktop/) installed and running.
-- An API key from an AI provider (Anthropic, OpenAI or Google Gemini).
+## Start it in 5 steps
 
-## Setup in 5 steps
-
-1. **Download this project.** Click "Download ZIP" and unzip it (or use `git clone`). Open a terminal in the unzipped folder.
-2. **Create your settings file.** Copy `.env.example` to a new file called `.env`, then open `.env` in any text editor and fill in the values (see the table below). Tip: files starting with a dot are hidden on macOS and Windows. In the terminal you can copy it with `cp .env.example .env` (Mac/Linux) or `copy .env.example .env` (Windows).
-3. **Add your documents.** Copy your files into the `documents/` folder.
-4. **Start the agent.** Make sure Docker Desktop is open and running, then in the terminal run:
+1. **Get the project.** Download the ZIP, unzip it, and open a terminal inside the folder. Otherwise, you can also clone it.
+2. **Make your settings file.** Copy `.env.example` and name the copy `.env`:
+   Then open `.env` in a text editor and fill it in (see the next section).
+3. **Add your documents.** Put your files in the `documents/` folder.
+4. **Run it.** With Docker Desktop open, type in your terminal of the project:
    ```
    docker compose up
    ```
-   The first run takes a few minutes while it builds. Leave the window open: the agent runs while it is open. (Use `docker compose up -d` to run it in the background.)
-5. **Check that it works.** Open <http://localhost:8000/.well-known/agent-card.json> in your browser. Wait until the log shows `Uvicorn running on http://0.0.0.0:8000` (the first indexing of many files can take minutes). You should then see a block of text with your agent's name. That address (`http://localhost:8000`) is the one you register in the central A2A platform.
+   The first time takes a few minutes. Keep the window open while the agent is working.
+5. **Check it works.** When you see `Uvicorn running on http://0.0.0.0:8000`, open <http://localhost:8000/.well-known/agent-card.json>. If you see text with your agent's name, it works.
 
-Always start the agent with `docker compose up`, because the agent receives your settings from the `.env` file through Docker.
+## What to write in `.env`
 
-**Changed `.env`?** Run `docker compose up -d` again so the agent restarts with the new settings. `docker compose restart` does NOT pick up `.env` changes; use it only after changing files in `documents/`.
+| Setting | What to put |
+|---|---|
+| `AGENT_NAME` | A name for your agent. |
+| `AGENT_DESCRIPTION` | One sentence about what it knows. |
+| `LLM_MODEL` | The AI to use, like `anthropic/claude-sonnet-5-5`, `openai/gpt-4o` or `gemini/gemini-2.5-flash`. |
+| `LLM_API_KEY` | The key (like a password) your AI company gave you. |
+| `PUBLIC_URL` | (Optional) The address where others reach your agent. On your own computer, leave it. On a server, write its real address (e.g. `https://agent.mycompany.com`), or the platform will look for the agent on `localhost` and not find it. |
+| `AGENT_API_KEY` | (Optional) A password you invent to protect your agent (not the AI key). Anyone who doesn't send it is refused. Leave empty only on your own computer; on a server, use a long random one. |
 
-## The `.env` settings
-
-| Variable | Required | What to put |
-|---|---|---|
-| `AGENT_NAME` | yes | The name other agents and users see. |
-| `AGENT_DESCRIPTION` | yes | One sentence on what the agent answers questions about. |
-| `LLM_MODEL` | yes | Provider and model, e.g. `anthropic/claude-sonnet-5-5`, `openai/gpt-4o` or `gemini/gemini-2.5-flash`. |
-| `ANTHROPIC_API_KEY` | if you use `anthropic/...` | Your Anthropic key. |
-| `OPENAI_API_KEY` | if you use `openai/...` | Your OpenAI key. |
-| `GEMINI_API_KEY` | if you use `gemini/...` | Your Gemini key. |
-| `PUBLIC_URL` | no | The address where the agent can be reached. Default `http://localhost:8000`. **If you run the agent on a server, set it to the address the central platform will actually use** (e.g. `https://agent.mycompany.com`), otherwise the agent tells callers the wrong address. |
-| `AGENT_API_KEY` | no | A secret password callers must send. See "Security" below. |
-
-Only fill in the API key for the provider you chose in `LLM_MODEL`.
+Changed `.env`? Run `docker compose up -d` again.
 
 ## Your documents
 
-- Supported types: **PDF, DOCX, MD, TXT** (other files are ignored). Tables in Word files are read as text.
-- Put them in the `documents/` folder (subfolders are fine).
-- After adding, changing or deleting files, restart the agent so it picks up the changes (this is for documents only, not for `.env`):
-  ```
-  docker compose restart
-  ```
-  Only new or changed files are re-read, so restarts are quick.
-- The `docs/` folder in this project holds developer notes. It is not for you.
+- Works with **PDF, DOCX, MD and TXT** files. Folders inside `documents/` are fine: everything inside them is read too, and answers mention the file with its folder (e.g. `manuals/guide.pdf`).
+- Added, changed or deleted a file? Run `docker compose restart`.
 
-## Try it from the command line (optional)
+## Connect it to the central platform
 
-This step is optional and the command below works on Mac, Linux and Git Bash (not in Windows cmd/PowerShell). With the agent running, it sends the agent a question:
+In the platform, add a new agent and paste the agent's address (`http://localhost:8000`, or your `PUBLIC_URL`). If you set `AGENT_API_KEY`, give the platform that password too.
 
-```
-curl -X POST http://localhost:8000/ \
-  -H "Content-Type: application/json" \
-  -d '{"jsonrpc":"2.0","id":1,"method":"message/send","params":{"message":{"kind":"message","messageId":"1","role":"user","parts":[{"kind":"text","text":"What is this documentation about?"}]}}}'
-```
+## Good to know
 
-If you set `AGENT_API_KEY`, add this line before `-d`:
+- Without `AGENT_API_KEY`, anyone who can reach the agent can ask about your documents. On your own computer that's fine; on a server, set a password.
+- Pieces of your documents are sent to the AI company you chose so it can write answers.
+- Only add documents you trust.
 
-```
-  -H "Authorization: Bearer YOUR_AGENT_API_KEY" \
-```
+## If something goes wrong
 
-The agent supports both A2A v0.3 (`message/send`, used above) and v1.0 (`SendMessage`) at the same address.
-
-## Register it in the central A2A platform
-
-In the platform, add a new agent and give it the base URL, e.g. `http://localhost:8000` (or your `PUBLIC_URL`). The platform reads the agent card from `/.well-known/agent-card.json` by itself. If you set `AGENT_API_KEY`, give the platform that key as a bearer token.
-
-## Security
-
-If `AGENT_API_KEY` is empty, **anyone who can reach the agent can ask it questions** about your documents. That is fine on your own computer, but on a server set `AGENT_API_KEY` to a long random secret. Callers must then send `Authorization: Bearer <key>`; requests without it get `Unauthorized` (HTTP 401). The agent card stays public.
-
-Only add documents you trust, because their text can steer the agent's answers.
-
-Your documents are sent in small excerpts to the AI provider you chose, to produce answers.
-
-## Troubleshooting
-
-| What you see | What it means / what to do |
+| What you see | What to do |
 |---|---|
-| `Configuration error: Missing <VAR> in your .env file` | The named setting is empty or missing in `.env`. Fill it in and run `docker compose up` again. |
-| `Configuration error: LLM_MODEL must look like provider/model, e.g. anthropic/claude-sonnet-5-5` | Fix `LLM_MODEL` so it has the form `provider/model`. |
-| `Configuration error: <msg>` | Any other message after this prefix describes the `.env` problem; fix it as stated. |
-| `No documents found in documents/. Add files and restart.` (in the logs) | The folder is empty or has no supported files. Add files, then `docker compose restart`. Until then the agent replies "No documentation is loaded." |
-| `The LLM provider returned an error: <reason>` | The AI provider refused or failed the request. The reason usually says why: wrong or expired API key, no credit, wrong model name, or a temporary outage. |
-| `The model returned an empty response` | The provider answered with nothing. Ask again; if it repeats, try another `LLM_MODEL`. |
-| `Unauthorized` (HTTP 401) | `AGENT_API_KEY` is set and the caller did not send the matching `Authorization: Bearer` header. |
-| Port 8000 already in use | Stop the other program using port 8000, then run `docker compose up` again. |
-| `env file .env not found` | You skipped step 2: copy `.env.example` to `.env`. |
+| `Missing ... in your .env file` | That setting is empty. Fill it in and run `docker compose up` again. |
+| `LLM_MODEL must look like provider/model` | Write it like `anthropic/claude-sonnet-5-5`. |
+| `No documents found` | Add files to `documents/`, then `docker compose restart`. |
+| `The LLM provider returned an error` | Usually a wrong or expired key, no credit, or a wrong model name. |
+| `Unauthorized` | The password (`AGENT_API_KEY`) was missing or wrong. |
+| `Port 8000 already in use` | Add `AGENT_PORT=8001` to `.env` (any free number), run `docker compose up` again, and use that number instead of 8000 in the addresses. |
+| `env file .env not found` | You skipped step 2. |
 
-If the settings are wrong, the agent tries to start a few times, then stays stopped with the error as the last line. Fix `.env` and run `docker compose up` again. If the terminal is still attached and busy, press Ctrl+C first.
-
-After restarting your computer or Docker Desktop, run `docker compose up -d` again (the container is only restarted automatically up to a few times after a crash).
-
-To see what the agent is doing: `docker compose logs`. To stop it: `docker compose down`.
+Useful commands: `docker compose logs` (see what it's doing) and `docker compose down` (stop it). After restarting your computer, run `docker compose up -d` again.

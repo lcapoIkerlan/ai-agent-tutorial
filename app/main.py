@@ -3,6 +3,7 @@
 import logging
 import sys
 
+import litellm
 import uvicorn
 
 from app.a2a_endpoint import build_app
@@ -19,6 +20,7 @@ def main() -> None:
     except ConfigError as exc:
         print(f"Configuration error: {exc}", file=sys.stderr)
         sys.exit(1)
+    litellm.api_key = settings.llm_api_key
     index = Index(settings.data_dir)
     log.info("Indexing %s", settings.documents_dir)
     index.sync(settings.documents_dir)
