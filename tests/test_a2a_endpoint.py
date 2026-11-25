@@ -35,6 +35,7 @@ def make_settings(key=None):
         agent_name="Docs Bot",
         agent_description="Answers from docs",
         llm_model="openai/x",
+        llm_api_key="k",
         public_url="http://localhost:8000",
         agent_api_key=key,
         documents_dir=Path("documents"),

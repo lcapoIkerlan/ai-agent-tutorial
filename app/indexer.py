@@ -87,10 +87,10 @@ class Index:
         seen: set[str] = set()
 
         for path in sorted(Path(documents_dir).rglob("*")):
-            name = path.name
+            parts = path.relative_to(documents_dir).parts
             if (
                 not path.is_file()
-                or name.startswith(("~$", "."))
+                or any(p.startswith(("~$", ".")) for p in parts)  # hidden/temp files and folders
                 or path.suffix.lower() not in SUPPORTED_EXTENSIONS
             ):
                 continue

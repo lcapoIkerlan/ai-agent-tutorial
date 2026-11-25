@@ -168,3 +168,13 @@ def test_extract_text_docx_tables(tmp_path):
     t.rows[0].cells[1].text = "cellB"
     d.save(p)
     assert "cellA | cellB" in extract_text(p)
+
+
+def test_nested_folders_indexed_hidden_ignored(docs, index):
+    for rel in ["a/b/c/deep.txt", "con espacios/mi doc.md", ".git/x.txt", "a/.cache/y.txt"]:
+        f = docs / rel
+        f.parent.mkdir(parents=True, exist_ok=True)
+        f.write_text("contenido", encoding="utf-8")
+    report = index.sync(docs)
+    assert {"a/b/c/deep.txt", "con espacios/mi doc.md"} <= set(report.added)
+    assert not any(".git" in s or ".cache" in s for s in report.added)
