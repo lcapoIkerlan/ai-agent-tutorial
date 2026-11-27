@@ -38,10 +38,6 @@ Changed `.env`? Run `docker compose up -d` again.
 - Works with **PDF, DOCX, MD and TXT** files. Folders inside `documents/` are fine: everything inside them is read too, and answers mention the file with its folder (e.g. `manuals/guide.pdf`).
 - Added, changed or deleted a file? Run `docker compose restart`.
 
-## Connect it to the central platform
-
-In the platform, add a new agent and paste the agent's address (`http://localhost:8000`, or your `PUBLIC_URL`). If you set `AGENT_API_KEY`, give the platform that password too.
-
 ## Good to know
 
 - Without `AGENT_API_KEY`, anyone who can reach the agent can ask about your documents. On your own computer that's fine; on a server, set a password.
